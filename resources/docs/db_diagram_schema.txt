@@ -1,0 +1,93 @@
+Table "users" {
+  "id" UUID [pk, default: `gen_random_uuid()`]
+  "name" VARCHAR(100) [not null]
+  "email" VARCHAR(100) [unique, not null]
+  "password_hash" TEXT [not null]
+  "created_at" TIMESTAMP [default: `now()`]
+}
+
+Table "categories" {
+  "id" SERIAL [pk, increment]
+  "name" VARCHAR(100) [not null]
+  "type" VARCHAR(10) [not null]
+}
+
+Table "transactions" {
+  "id" UUID [pk, default: `gen_random_uuid()`]
+  "user_id" UUID
+  "category_id" INT
+  "amount" NUMERIC(12,2) [not null]
+  "type" VARCHAR(10) [not null]
+  "description" TEXT
+  "transaction_date" DATE [not null]
+  "created_at" TIMESTAMP [default: `now()`]
+}
+
+Table "budgets" {
+  "id" UUID [pk, default: `gen_random_uuid()`]
+  "user_id" UUID
+  "category_id" INT
+  "month" DATE [not null]
+  "limit_amount" NUMERIC(12,2) [not null]
+
+  Indexes {
+    (user_id, category_id, month) [unique]
+  }
+}
+
+Table "recurring_transactions" {
+  "id" UUID [pk, default: `gen_random_uuid()`]
+  "user_id" UUID
+  "category_id" INT
+  "amount" NUMERIC(12,2) [not null]
+  "type" VARCHAR(10) [not null]
+  "description" TEXT
+  "recurrence_interval" VARCHAR(20) [not null]
+  "start_date" DATE [not null]
+  "end_date" DATE
+  "created_at" TIMESTAMP [default: `now()`]
+}
+
+Table "recurring_transaction_tags" {
+  "recurring_transaction_id" uuid
+  "tag_id" int
+
+  Indexes {
+    (recurring_transaction_id, tag_id) [pk]
+  }
+}
+
+Table "tags" {
+  "id" SERIAL [pk, increment]
+  "name" VARCHAR(50) [unique, not null]
+}
+
+Table "transaction_tags" {
+  "transaction_id" UUID
+  "tag_id" INT
+
+  Indexes {
+    (transaction_id, tag_id) [pk]
+  }
+}
+
+Ref:"users"."id" < "transactions"."user_id" [delete: cascade]
+
+Ref:"categories"."id" < "transactions"."category_id"
+
+Ref:"users"."id" < "budgets"."user_id" [delete: cascade]
+
+Ref:"categories"."id" < "budgets"."category_id"
+
+Ref:"users"."id" < "recurring_transactions"."user_id" [delete: cascade]
+
+Ref:"categories"."id" < "recurring_transactions"."category_id"
+
+Ref:"transactions"."id" < "transaction_tags"."transaction_id" [delete: cascade]
+
+Ref:"recurring_transactions"."id" < "recurring_transaction_tags"."recurring_transaction_id" [delete: cascade]
+
+Ref:"tags"."id" < "recurring_transaction_tags"."tag_id" [delete: cascade] 
+
+Ref:"tags"."id" < "transaction_tags"."tag_id" [delete: cascade]
+
