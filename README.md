@@ -8,13 +8,14 @@ Tranco.me is a service that provides financial control and management tools for 
 
 ## Features
 
+- [ ] Register users
+  - [ ] One libsql database per user
 - [ ] Register categories
 - [ ] Register transactions
 - [ ] Register transaction tags
 - [ ] Register recurring transactions
 - [ ] Register recurring transaction tags
 - [ ] Register budgets
-- [ ] Register users
 - [ ] Get analytics
   - [ ] Income vs Expenses by period (daily, weekly, monthly, yearly)
   - [ ] Breakdown of expenses by category
