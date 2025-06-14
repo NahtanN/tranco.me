@@ -1,4 +1,4 @@
-package cmd
+package cmd_add_user
 
 import (
 	"database/sql"
@@ -11,27 +11,24 @@ import (
 )
 
 var (
-	name  string
-	email string
+	dbManager *database.DatabaseManager
+	name      string
+	email     string
 )
 
-var initCmd = &cobra.Command{
-	Use:   "init",
-	Short: "Set up the initial configuration for the application",
-	Long: `The init command initializes the application by setting up the necessary configuration. 
-
-Set username and other required parameters to get started with the application.`,
+var AddUserCmd = &cobra.Command{
+	Use:   "add",
+	Short: "Add a new user to the database",
+	Long:  `Add a new user to the database with a unique ID and name.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		dbManager.InitializeDatabase()
-
 		database.WithDatabase(dbManager, func(db *sql.DB) error {
-			query := `INSERT INTO users (id, name, email) VALUES (?, ?, ?)`
+			query := `INSERT INTO users (id, name) VALUES (?, ?)`
 			uuid, err := uuid.NewV7()
 			if err != nil {
 				fmt.Println("Error generating UUID:", err)
 			}
 
-			result, err := db.Exec(query, uuid, name, email)
+			result, err := db.Exec(query, uuid, name)
 			if err != nil {
 				fmt.Println("Error inserting user:", err)
 			}
@@ -46,13 +43,12 @@ Set username and other required parameters to get started with the application.`
 }
 
 func init() {
-	rootCmd.AddCommand(initCmd)
+	dbManager = database.NewDatabaseManager(nil)
 
-	initCmd.Flags().
+	AddUserCmd.Flags().
 		StringVarP(&name, "name", "n", "", "Name for the root user (required)")
-	initCmd.MarkFlagRequired("name") // Mark the username flag as required
+	AddUserCmd.MarkFlagRequired("name") // Mark the username flag as required
 
-	initCmd.Flags().
+	AddUserCmd.Flags().
 		StringVarP(&email, "email", "e", "", "Email address for the root user (optional)")
-	initCmd.MarkFlagRequired("email") // Mark the email flag as required
 }
