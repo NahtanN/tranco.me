@@ -6,8 +6,6 @@ import (
 	set_up "github.com/nahtann/trancome/internal/domain/init/use_case"
 )
 
-// var username string
-
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Set up the initial configuration for the application",
@@ -15,7 +13,7 @@ var initCmd = &cobra.Command{
 
 Set username and other required parameters to get started with the application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		setUpUseCase := set_up.NewSetUpUseCase()
+		setUpUseCase := set_up.NewSetUpUseCase(migrations)
 		setUpUseCase.Execute()
 	},
 }

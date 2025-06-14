@@ -7,5 +7,3 @@ CREATE TABLE users (
     updated_at TEXT DEFAULT (datetime('now')),
     deleted_at TEXT DEFAULT NULL
 );
-
-

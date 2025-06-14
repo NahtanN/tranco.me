@@ -4,10 +4,13 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"io/fs"
 	"os"
 
 	"github.com/spf13/cobra"
 )
+
+var migrations fs.FS
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -24,7 +27,9 @@ and financial insights to help users make informed decisions about their finance
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
+func Execute(migrationSource fs.FS) {
+	migrations = migrationSource
+
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)

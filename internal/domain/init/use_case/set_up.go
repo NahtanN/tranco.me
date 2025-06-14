@@ -3,22 +3,28 @@ package set_up
 import (
 	"database/sql"
 	"fmt"
+	"io/fs"
+	"strings"
 
-	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/sqlite"
 	_ "github.com/tursodatabase/go-libsql"
 )
 
-type setUpUseCase struct{}
+const FILE_UP_MIGRATION_INDEX = 1
 
-func NewSetUpUseCase() *setUpUseCase {
-	return &setUpUseCase{}
+type setUpUseCase struct {
+	Migrations fs.FS
+}
+
+func NewSetUpUseCase(migrations fs.FS) *setUpUseCase {
+	return &setUpUseCase{
+		Migrations: migrations,
+	}
 }
 
 func (uc *setUpUseCase) Execute() {
 	db, err := sql.Open("libsql", "file:./shared.db")
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("Failed to open database: %v", err))
 	}
 	defer func() {
 		if closeError := db.Close(); closeError != nil {
@@ -29,20 +35,44 @@ func (uc *setUpUseCase) Execute() {
 		}
 	}()
 
-	driver, err := sqlite.WithInstance(db, &sqlite.Config{})
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create SQLite driver: %v", err))
+	if err := db.Ping(); err != nil {
+		panic(fmt.Sprintf("Failed to connect to the database: %v", err))
 	}
 
-	m, err := migrate.NewWithDatabaseInstance(
-		"file:///internal/infra/database/migrations/shared",
-		"shared", driver,
-	)
+	err = uc.MigrateUp(db)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to create migration instance: %v", err))
+		panic(fmt.Sprintf("Failed to run migrations: %v", err))
+	}
+}
+
+func (uc *setUpUseCase) MigrateUp(db *sql.DB) error {
+	files, err := fs.ReadDir(uc.Migrations, "migrations/shared")
+	if err != nil {
+		return fmt.Errorf("failed to read migration files: %w", err)
 	}
 
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		panic(fmt.Sprintf("Failed to apply migrations: %v", err))
+	for _, file := range files {
+		if file.IsDir() {
+			continue // Skip directories
+		}
+
+		fileSections := strings.Split(file.Name(), ".")
+		if fileSections[FILE_UP_MIGRATION_INDEX] != "up" {
+			continue // skip files that are not "up" migrations
+		}
+
+		migration, err := fs.ReadFile(uc.Migrations, "migrations/shared/"+file.Name())
+		if err != nil {
+			return fmt.Errorf("failed to read migration file %s: %w", file.Name(), err)
+		}
+
+		fmt.Println(string(migration))
+
+		_, err = db.Exec(string(migration))
+		if err != nil {
+			return fmt.Errorf("failed to execute migration %s: %w", file.Name(), err)
+		}
 	}
+
+	return nil
 }
