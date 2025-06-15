@@ -3,23 +3,17 @@ package cmd_add_user
 import (
 	"database/sql"
 	"fmt"
-	"log"
-	"os"
+	"path/filepath"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
+	"github.com/nahtann/trancome/config"
 	"github.com/nahtann/trancome/internal/database"
 )
 
-type Config struct {
-	DatabaseDir string `mapstructure:"database_dir"`
-	SharedDB    string `mapstructure:"shared_db"`
-	UserDBDir   string `mapstructure:"user_db_dir"`
-}
-
-var config Config
+var configEnvs *config.Config
 
 var dbManager *database.DatabaseManager
 
@@ -28,11 +22,12 @@ var AddUserCmd = &cobra.Command{
 	Short: "Add a new user to the database",
 	Long:  `Add a new user to the database with a unique ID and name.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		dbPath := config.SharedDB
-		if dbPath == "" {
+		db := configEnvs.SharedDB
+		if db == "" {
 			return fmt.Errorf("shared database path is not configured")
 		}
 
+		dbPath := filepath.Join(configEnvs.DatabaseDir, db)
 		return database.WithDatabase(dbManager, dbPath, func(db *sql.DB) error {
 			name, err := cmd.Flags().GetString("name")
 			if err != nil {
@@ -61,8 +56,18 @@ var AddUserCmd = &cobra.Command{
 				}
 			}
 
-			fmt.Printf("User '%s' created with ID %s\n", name, uuid.String())
-			fmt.Println("Application initialized successfully.")
+			userDbPath := filepath.Join(configEnvs.DatabaseDir, configEnvs.UserDBDir)
+			database.CreateUserDatabase(dbManager, userDbPath, uuid.String(), name)
+
+			style := lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("#04B575"))
+
+			fmt.Println(
+				style.Render(
+					fmt.Sprintf("User '%s' created successfully with ID %s", name, uuid.String()),
+				),
+			)
 
 			return nil
 		})
@@ -77,20 +82,5 @@ func init() {
 
 	AddUserCmd.PersistentFlags().StringP("email", "e", "", "Email of the user to add")
 
-	home, err := os.UserHomeDir()
-	cobra.CheckErr(err)
-
-	viper.AddConfigPath(home)
-	viper.SetConfigType("yaml")
-	viper.SetConfigName(".trancome")
-
-	viper.AutomaticEnv()
-
-	if err := viper.ReadInConfig(); err != nil {
-		fmt.Println("Error reading config file:", err)
-	}
-
-	if err := viper.Unmarshal(&config); err != nil {
-		log.Fatalf("Error unmarshalling config: %v", err)
-	}
+	configEnvs = config.Load("")
 }

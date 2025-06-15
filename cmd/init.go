@@ -4,13 +4,11 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"os"
 	"path/filepath"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/nahtann/trancome/internal/database"
 )
@@ -27,7 +25,7 @@ var initCmd = &cobra.Command{
 
 Set username and other required parameters to get started with the application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		dbManager.InitializeDatabase(&configEnvs)
+		dbManager.InitializeDatabase(configEnvs)
 
 		db := configEnvs.SharedDB
 		if db == "" {
@@ -75,21 +73,4 @@ func init() {
 
 	initCmd.Flags().
 		StringVarP(&email, "email", "e", "", "Email address for the root user (optional)")
-
-	home, err := os.UserHomeDir()
-	cobra.CheckErr(err)
-
-	viper.AddConfigPath(home)
-	viper.SetConfigType("yaml")
-	viper.SetConfigName(".trancome")
-
-	viper.AutomaticEnv()
-
-	if err := viper.ReadInConfig(); err != nil {
-		fmt.Println("Error reading config file:", err)
-	}
-
-	if err := viper.Unmarshal(&configEnvs); err != nil {
-		log.Fatalf("Error unmarshalling config: %v", err)
-	}
 }
