@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -50,7 +51,12 @@ Set username and other required parameters to get started with the application.`
 
 			id, _ := result.LastInsertId()
 			fmt.Printf("User '%s' created with ID %d\n", name, id)
-			fmt.Println("Application initialized successfully.")
+
+			style := lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("#04B575"))
+
+			fmt.Println(style.Render("Application initialized successfully."))
 
 			userDbPath := filepath.Join(configEnvs.DatabaseDir, configEnvs.UserDBDir)
 			database.CreateUserDatabase(dbManager, userDbPath, uuid.String(), name)
