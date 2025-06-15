@@ -13,8 +13,8 @@ type TransactionManager struct {
 }
 
 // NewTransactionManager creates a new transaction manager
-func NewTransactionManager(dbManager *DatabaseManager) (*TransactionManager, error) {
-	db, err := dbManager.GetConnection()
+func NewTransactionManager(dbManager *DatabaseManager, dbPath string) (*TransactionManager, error) {
+	db, err := dbManager.GetConnection(dbPath)
 	if err != nil {
 		return nil, err
 	}

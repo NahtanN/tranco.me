@@ -6,8 +6,8 @@ import (
 )
 
 // WithDatabase is a helper function that manages database connections for commands
-func WithDatabase(dbManager *DatabaseManager, fn func(*sql.DB) error) error {
-	db, err := dbManager.GetConnection()
+func WithDatabase(dbManager *DatabaseManager, dbPath string, fn func(*sql.DB) error) error {
+	db, err := dbManager.GetConnection(dbPath)
 	if err != nil {
 		return err
 	}

@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 
 	_ "github.com/tursodatabase/go-libsql"
+
+	"github.com/nahtann/trancome/config"
 )
 
 const (
@@ -26,16 +29,8 @@ func NewDatabaseManager(migrations fs.FS) *DatabaseManager {
 	}
 }
 
-func (dm *DatabaseManager) GetConnection() (*sql.DB, error) {
-	if _, err := os.Stat(dbFileName); os.IsNotExist(err) {
-		file, err := os.Create(dbFileName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create database file: %v", err)
-		}
-		file.Close()
-	}
-
-	db, err := sql.Open("libsql", "file:"+dbFileName+"?journal_mode=WAL&sync=full&foreign_keys=on")
+func (dm *DatabaseManager) GetConnection(dbPath string) (*sql.DB, error) {
+	db, err := sql.Open("libsql", "file:"+dbPath+"?journal_mode=WAL&sync=full&foreign_keys=on")
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open database: %v", err))
 	}
@@ -51,8 +46,24 @@ func (dm *DatabaseManager) GetConnection() (*sql.DB, error) {
 	return db, nil
 }
 
-func (dm *DatabaseManager) InitializeDatabase() {
-	db, err := dm.GetConnection()
+func (dm *DatabaseManager) InitializeDatabase(config *config.Config) {
+	if err := os.MkdirAll(config.DatabaseDir, 0755); err != nil {
+		panic(fmt.Sprintf("Failed to create database directory: %v", err))
+	}
+
+	// Create user database subdirectory
+	userDBDir := filepath.Join(config.DatabaseDir, config.UserDBDir)
+	if err := os.MkdirAll(userDBDir, 0755); err != nil {
+		panic(fmt.Sprintf("Failed to create user database directory: %v", err))
+	}
+
+	// Initialize shared database (create if doesn't exist)
+	sharedDBPath := filepath.Join(config.DatabaseDir, config.SharedDB)
+	if err := initializeSharedDB(sharedDBPath); err != nil {
+		panic(fmt.Sprintf("Failed to initialize shared database: %v", err))
+	}
+
+	db, err := dm.GetConnection(sharedDBPath)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to get database connection: %v", err))
 	}
@@ -83,4 +94,47 @@ func (dm *DatabaseManager) InitializeDatabase() {
 			panic(fmt.Sprintf("Failed to execute migration %s: %v", file.Name(), err))
 		}
 	}
+}
+
+func initializeSharedDB(sharedDBPath string) error {
+	if _, err := os.Stat(sharedDBPath); os.IsNotExist(err) {
+		file, err := os.Create(sharedDBPath)
+		if err != nil {
+			return fmt.Errorf("failed to create shared database file: %v", err)
+		}
+		file.Close()
+	}
+
+	return nil
+}
+
+func CreateUserDatabase(dbManager *DatabaseManager, dbPath string, userID string, username string) {
+	fmt.Println("dbPath", dbPath)
+	userDBPath := filepath.Join(dbPath, userID+"_"+username+".db")
+	if _, err := os.Stat(userDBPath); os.IsNotExist(err) {
+		file, err := os.Create(userDBPath)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to create user database file: %v", err))
+		}
+		file.Close()
+	}
+
+	fmt.Println("userDBPath", userDBPath)
+
+	userDB, err := dbManager.GetConnection(userDBPath)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to connect to user database: %v", err))
+	}
+	defer userDB.Close()
+
+	query := `CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT
+  )`
+	if _, err := userDB.Exec(query); err != nil {
+		panic(fmt.Sprintf("Failed to create users table: %v", err))
+	}
+
+	fmt.Printf("User database for '%s' created successfully at %s\n", username, userDBPath)
 }

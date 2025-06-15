@@ -12,22 +12,17 @@ import (
 
 	cmd_config "github.com/nahtann/trancome/cmd/config"
 	cmd_user "github.com/nahtann/trancome/cmd/user"
+	"github.com/nahtann/trancome/config"
 	"github.com/nahtann/trancome/internal/database"
 	"github.com/nahtann/trancome/utils"
 )
-
-type Config struct {
-	DatabaseDir string `mapstructure:"database_dir"`
-	SharedDB    string `mapstructure:"shared_db"`
-	UserDBDir   string `mapstructure:"user_db_dir"`
-}
 
 var (
 	dbManager  *database.DatabaseManager
 	migrations fs.FS
 
-	cfgFile string
-	config  Config
+	cfgFile    string
+	configEnvs config.Config
 )
 
 var rootCmd = &cobra.Command{
@@ -85,16 +80,16 @@ func initConfig() {
 		}
 	}
 
-	if err := viper.Unmarshal(&config); err != nil {
+	if err := viper.Unmarshal(&configEnvs); err != nil {
 		log.Fatalf("Error unmarshalling config: %v", err)
 	}
 
 	// Override with command line flag if provided
 	if dbDir := viper.GetString("database_dir"); dbDir != "" {
 		if expandedDir, err := utils.ExpandPath(dbDir); err == nil {
-			config.DatabaseDir = expandedDir
+			configEnvs.DatabaseDir = expandedDir
 		} else {
-			config.DatabaseDir = dbDir
+			configEnvs.DatabaseDir = dbDir
 		}
 	}
 }

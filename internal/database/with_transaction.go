@@ -9,8 +9,8 @@ import (
 // WithTransaction provides automatic transaction management
 // If the function returns an error, the transaction is rolled back
 // If the function completes successfully, the transaction is committed
-func WithTransaction(dbManager *DatabaseManager, fn func(*sql.Tx) error) error {
-	db, err := dbManager.GetConnection()
+func WithTransaction(dbManager *DatabaseManager, dbPath string, fn func(*sql.Tx) error) error {
+	db, err := dbManager.GetConnection(dbPath)
 	if err != nil {
 		return err
 	}
