@@ -54,5 +54,4 @@ func init() {
 
 	initCmd.Flags().
 		StringVarP(&email, "email", "e", "", "Email address for the root user (optional)")
-	initCmd.MarkFlagRequired("email") // Mark the email flag as required
 }

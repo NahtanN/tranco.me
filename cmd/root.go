@@ -1,18 +1,33 @@
 package cmd
 
 import (
+	"fmt"
 	"io/fs"
+	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
+	cmd_config "github.com/nahtann/trancome/cmd/config"
 	cmd_user "github.com/nahtann/trancome/cmd/user"
 	"github.com/nahtann/trancome/internal/database"
+	"github.com/nahtann/trancome/utils"
 )
+
+type Config struct {
+	DatabaseDir string `mapstructure:"database_dir"`
+	SharedDB    string `mapstructure:"shared_db"`
+	UserDBDir   string `mapstructure:"user_db_dir"`
+}
 
 var (
 	dbManager  *database.DatabaseManager
 	migrations fs.FS
+
+	cfgFile string
+	config  Config
 )
 
 var rootCmd = &cobra.Command{
@@ -22,9 +37,9 @@ var rootCmd = &cobra.Command{
 
 It offers features such as expense tracking, budget management, 
 and financial insights to help users make informed decisions about their finances.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Welcome to Tranco!")
+	},
 }
 
 func Execute(migrationSource fs.FS) {
@@ -39,5 +54,76 @@ func Execute(migrationSource fs.FS) {
 }
 
 func init() {
+	cobra.OnInitialize(initConfig)
+
 	rootCmd.AddCommand(cmd_user.UserCmd)
+	rootCmd.AddCommand(cmd_config.ConfigCmd)
+}
+
+func initConfig() {
+	if cfgFile != "" {
+		viper.SetConfigFile(cfgFile)
+	} else {
+		home, err := os.UserHomeDir()
+		cobra.CheckErr(err)
+
+		viper.AddConfigPath(home)
+		viper.SetConfigType("yaml")
+		viper.SetConfigName(".trancome")
+	}
+
+	viper.AutomaticEnv()
+
+	// Set default values for configuration
+	setDefaults()
+
+	if err := viper.ReadInConfig(); err == nil {
+		fmt.Printf("Using config file: %s\n", viper.ConfigFileUsed())
+	} else {
+		if err := createDefaultConfig(); err != nil {
+			log.Printf("Warning: Could not read config file: %v", err)
+		}
+	}
+
+	if err := viper.Unmarshal(&config); err != nil {
+		log.Fatalf("Error unmarshalling config: %v", err)
+	}
+
+	// Override with command line flag if provided
+	if dbDir := viper.GetString("database_dir"); dbDir != "" {
+		if expandedDir, err := utils.ExpandPath(dbDir); err == nil {
+			config.DatabaseDir = expandedDir
+		} else {
+			config.DatabaseDir = dbDir
+		}
+	}
+}
+
+func setDefaults() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = "."
+	}
+
+	defaultDBDir := filepath.Join(home, ".trancome", "databases")
+
+	viper.SetDefault("database_dir", defaultDBDir)
+	viper.SetDefault("shared_db", "shared.db")
+	viper.SetDefault("user_db_dir", "users")
+}
+
+func createDefaultConfig() error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("could not get user home directory: %w", err)
+	}
+
+	configPath := filepath.Join(home, ".trancome.yaml")
+
+	if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
+		return err
+	}
+
+	viper.SetConfigFile(configPath)
+	return viper.WriteConfigAs(configPath)
 }

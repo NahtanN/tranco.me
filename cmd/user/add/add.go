@@ -10,31 +10,42 @@ import (
 	"github.com/nahtann/trancome/internal/database"
 )
 
-var (
-	dbManager *database.DatabaseManager
-	name      string
-	email     string
-)
+var dbManager *database.DatabaseManager
 
 var AddUserCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Add a new user to the database",
 	Long:  `Add a new user to the database with a unique ID and name.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		database.WithDatabase(dbManager, func(db *sql.DB) error {
-			query := `INSERT INTO users (id, name) VALUES (?, ?)`
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return database.WithDatabase(dbManager, func(db *sql.DB) error {
+			name, err := cmd.Flags().GetString("name")
+			if err != nil {
+				return fmt.Errorf("failed to get name flag: %w", err)
+			}
+			email, err := cmd.Flags().GetString("email")
+			if err != nil {
+				return fmt.Errorf("failed to get email flag: %w", err)
+			}
+
+			query := `INSERT INTO users (id, name, email) VALUES (?, ?, ?)`
 			uuid, err := uuid.NewV7()
 			if err != nil {
-				fmt.Println("Error generating UUID:", err)
+				return fmt.Errorf("failed to generate UUID: %w", err)
 			}
 
-			result, err := db.Exec(query, uuid, name)
-			if err != nil {
-				fmt.Println("Error inserting user:", err)
+			if email == "" {
+				_, err = db.Exec(query, uuid, name, nil)
+				if err != nil {
+					return fmt.Errorf("failed to insert user into database: %w", err)
+				}
+			} else {
+				_, err = db.Exec(query, uuid, name, email)
+				if err != nil {
+					return fmt.Errorf("failed to insert user into database: %w", err)
+				}
 			}
 
-			id, _ := result.LastInsertId()
-			fmt.Printf("User '%s' created with ID %d\n", name, id)
+			fmt.Printf("User '%s' created with ID %s\n", name, uuid.String())
 			fmt.Println("Application initialized successfully.")
 
 			return nil
@@ -45,10 +56,8 @@ var AddUserCmd = &cobra.Command{
 func init() {
 	dbManager = database.NewDatabaseManager(nil)
 
-	AddUserCmd.Flags().
-		StringVarP(&name, "name", "n", "", "Name for the root user (required)")
+	AddUserCmd.PersistentFlags().StringP("name", "n", "", "Name of the user to add")
 	AddUserCmd.MarkFlagRequired("name") // Mark the username flag as required
 
-	AddUserCmd.Flags().
-		StringVarP(&email, "email", "e", "", "Email address for the root user (optional)")
+	AddUserCmd.PersistentFlags().StringP("email", "e", "", "Email of the user to add")
 }
