@@ -10,12 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
+	"github.com/nahtann/trancome/config"
 	"github.com/nahtann/trancome/internal/database"
-)
-
-var (
-	name  string
-	email string
 )
 
 var initCmd = &cobra.Command{
@@ -25,7 +21,22 @@ var initCmd = &cobra.Command{
 
 Set username and other required parameters to get started with the application.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		cfg := config.NewConfig()
+		configEnvs := cfg.Load().CreateDefault()
+
 		dbManager.InitializeDatabase(configEnvs)
+
+		name, err := cmd.Flags().GetString("name")
+		if err != nil {
+			log.Fatalf("Error getting name flag: %v", err)
+			return
+		}
+
+		email, err := cmd.Flags().GetString("email")
+		if err != nil {
+			log.Fatalf("Error getting email flag: %v", err)
+			return
+		}
 
 		db := configEnvs.SharedDB
 		if db == "" {
@@ -67,10 +78,9 @@ Set username and other required parameters to get started with the application.`
 func init() {
 	rootCmd.AddCommand(initCmd)
 
-	initCmd.Flags().
-		StringVarP(&name, "name", "n", "", "Name for the root user (required)")
-	initCmd.MarkFlagRequired("name") // Mark the username flag as required
+	initCmd.PersistentFlags().StringP("name", "n", "", "Name for the root user (required)")
+	initCmd.MarkPersistentFlagRequired("name")
 
-	initCmd.Flags().
-		StringVarP(&email, "email", "e", "", "Email address for the root user (optional)")
+	initCmd.PersistentFlags().
+		StringP("email", "e", "", "Email address for the root user (optional)")
 }

@@ -11,24 +11,36 @@ import (
 
 	"github.com/nahtann/trancome/config"
 	"github.com/nahtann/trancome/internal/database"
+	"github.com/nahtann/trancome/internal/styles"
 )
 
-var configEnvs *config.Config
-
-var dbManager *database.DatabaseManager
+var cmdWarning = styles.Yellow(
+	"Please run 'trancome init' to create the shared database.",
+)
 
 var AddUserCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Add a new user to the database",
 	Long:  `Add a new user to the database with a unique ID and name.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
+		cfg := config.NewConfig()
+		configEnvs, err := cfg.Load().CheckConsistency()
+		if err != nil {
+			fmt.Printf("%s\n%s", err, cmdWarning)
+			return
+		}
+
 		db := configEnvs.SharedDB
 		if db == "" {
-			return fmt.Errorf("shared database path is not configured")
+			fmt.Printf("shared database path is not configured")
+			return
 		}
 
 		dbPath := filepath.Join(configEnvs.DatabaseDir, db)
-		return database.WithDatabase(dbManager, dbPath, func(db *sql.DB) error {
+
+		dbManager := database.NewDatabaseManager(nil)
+
+		err = database.WithDatabase(dbManager, dbPath, func(db *sql.DB) error {
 			name, err := cmd.Flags().GetString("name")
 			if err != nil {
 				return fmt.Errorf("failed to get name flag: %w", err)
@@ -71,16 +83,16 @@ var AddUserCmd = &cobra.Command{
 
 			return nil
 		})
+		if err != nil {
+			fmt.Printf("Error: %s\n", err)
+			return
+		}
 	},
 }
 
 func init() {
-	dbManager = database.NewDatabaseManager(nil)
-
 	AddUserCmd.PersistentFlags().StringP("name", "n", "", "Name of the user to add")
 	AddUserCmd.MarkFlagRequired("name") // Mark the username flag as required
 
 	AddUserCmd.PersistentFlags().StringP("email", "e", "", "Email of the user to add")
-
-	configEnvs = config.Load("")
 }

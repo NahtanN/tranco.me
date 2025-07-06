@@ -9,16 +9,12 @@ import (
 
 	cmd_config "github.com/nahtann/trancome/cmd/config"
 	cmd_user "github.com/nahtann/trancome/cmd/user"
-	"github.com/nahtann/trancome/config"
 	"github.com/nahtann/trancome/internal/database"
 )
 
 var (
 	dbManager  *database.DatabaseManager
 	migrations fs.FS
-
-	cfgFile    string
-	configEnvs *config.Config
 )
 
 var rootCmd = &cobra.Command{
@@ -45,12 +41,6 @@ func Execute(migrationSource fs.FS) {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
-
 	rootCmd.AddCommand(cmd_user.UserCmd)
 	rootCmd.AddCommand(cmd_config.ConfigCmd)
-}
-
-func initConfig() {
-	configEnvs = config.Load("")
 }
